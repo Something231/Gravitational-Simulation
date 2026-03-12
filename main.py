@@ -13,18 +13,25 @@ class Body:
         self.mass = mass
         self.radius = radius
         self.color = color
-        self.temp_force = np.array([0, 0])
+        self.temp_force = np.array([0.0, 0.0])
+        self.acceleration = np.array([0.0, 0.0])
     
+    def resolve_position(self, mult):
+        self.position = self.position + self.velocity * mult + 0.5 * self.acceleration * (mult**2)
+
     def resolve_force(self, bodies):
         for b in bodies:
-            if np.linalg.norm(b.position-self.position) != 0:
-                grav = (G * (b.mass * self.mass)) / ((np.linalg.norm(b.position-self.position))**2)
-                self.temp_force = self.temp_force + grav * ((b.position-self.position) / np.linalg.norm(b.position-self.position))
+            magnitude = np.linalg.norm(b.position-self.position)
+            if magnitude != 0:
+                grav = (G * (b.mass * self.mass)) / (magnitude**2)
+                self.temp_force = self.temp_force + grav * ((b.position-self.position) / magnitude)
 
     def resolve_velocity(self, mult):
-        self.velocity = self.velocity + (self.temp_force / self.mass) * mult
-        self.position = self.position + self.velocity * mult
+        new_acceleration = self.temp_force / self.mass
+        self.velocity = self.velocity + 0.5*(self.acceleration + new_acceleration)*mult
+        
         self.temp_force = np.array([0, 0])
+        self.acceleration = new_acceleration
         
 pygame.init()
 screen = pygame.display.set_mode((1000, 1000))
@@ -42,7 +49,7 @@ mars = Body(np.array([0, -1.5 * Au]), np.array([-mars_vel, 0]), (6.4191 * 10**23
 evil_sun = Body(np.array([0, Au]), np.array([-sun_vel, 0]), sun.mass * 45/50, 45, (150, 10, 200))
 
 all_bodies = [sun, earth, mars]
-
+speed= 17520
 #let 1 AU = 100 pix
 def pixelise(position):
     scale = 200 / Au
@@ -57,12 +64,19 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_MINUS:
+                speed = speed / 2
+            if event.key == pygame.K_EQUALS:
+                speed = speed * 2
 
     clock.tick(60)
     for b in all_bodies:
+        b.resolve_position(speed)
+    for b in all_bodies:
         b.resolve_force(all_bodies)
     for b in all_bodies:
-        b.resolve_velocity(17520)
+        b.resolve_velocity(speed)
         pygame.draw.circle(screen, b.color, pixelise(b.position), b.radius)
     pygame.display.flip()
     print(pixelise(sun.position))
